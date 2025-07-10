@@ -95,7 +95,7 @@ jobs:
         go build -ldflags "-s -w -X main.version=${GITHUB_REF_NAME:-dev}" -o "build/${output_name}" .
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pbm-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
         path: build/pbm-exporter-*
