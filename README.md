@@ -4,7 +4,7 @@ Prometheus exporter for PBM (Percona Backup MongoDB) written in Go.
 
 ## 🔄 Fork et migration vers Go
 
-Ce projet est un **fork migré vers Go** du [pbm-exporter original en Node.js](https://github.com/percona/pbm-exporter). 
+Ce projet est un **fork migré vers Go** du [pbm-exporter original en Node.js](https://github.com/koumoul-dev/pbm-exporter). 
 
 ### 🎯 Pourquoi cette migration ?
 
@@ -18,7 +18,7 @@ La migration vers Go suit les **standards de l'écosystème Prometheus** :
 
 Cette approche garantit une **meilleure intégration** dans l'écosystème de monitoring moderne et suit les recommandations de l'équipe Prometheus.
 
-> **Repository original** : [percona/pbm-exporter](https://github.com/percona/pbm-exporter) (Node.js)
+> **Repository original** : [percona/pbm-exporter](https://github.com/koumoul-dev/pbm-exporter) (Node.js)
 
 ## 🚀 Installation rapide
 
