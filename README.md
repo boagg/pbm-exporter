@@ -2,6 +2,24 @@
 
 Prometheus exporter for PBM (Percona Backup MongoDB) written in Go.
 
+## 🔄 Fork et migration vers Go
+
+Ce projet est un **fork migré vers Go** du [pbm-exporter original en Node.js](https://github.com/percona/pbm-exporter). 
+
+### 🎯 Pourquoi cette migration ?
+
+La migration vers Go suit les **standards de l'écosystème Prometheus** :
+
+- **📈 Cohérence** : Prometheus et la quasi-totalité des exporteurs officiels sont écrits en Go
+- **🚀 Performance** : Binaire statique léger (~15MB) vs runtime Node.js (~100MB+)
+- **📦 Distribution simplifiée** : Un seul fichier exécutable, sans dépendances
+- **⚡ Démarrage instantané** : Plus de temps d'initialisation du runtime JavaScript
+- **🏗️ Build natif** : Cross-compilation native pour toutes les plateformes
+
+Cette approche garantit une **meilleure intégration** dans l'écosystème de monitoring moderne et suit les recommandations de l'équipe Prometheus.
+
+> **Repository original** : [percona/pbm-exporter](https://github.com/percona/pbm-exporter) (Node.js)
+
 ## 🚀 Installation rapide
 
 ### Via GitHub Releases (Recommandé)
@@ -37,6 +55,7 @@ docker run -p 9216:9216 ghcr.io/boagg/pbm-exporter:latest
 
 ## Features
 
+- ✅ **Migré vers Go** : Fork du projet original pour suivre les standards Prometheus
 - ✅ **Zero dependencies**: Single binary with no external dependencies
 - ✅ **Cross-platform**: Available for Linux, macOS, and Windows (amd64/arm64)
 - ✅ **Docker support**: Multi-stage build with minimal Alpine image
@@ -44,6 +63,8 @@ docker run -p 9216:9216 ghcr.io/boagg/pbm-exporter:latest
 - ✅ **Prometheus metrics**: Full compatibility with Prometheus monitoring
 - ✅ **Health checks**: Built-in health check endpoint
 - ✅ **Graceful shutdown**: Proper signal handling
+- ✅ **Lightweight**: ~15MB binary vs ~100MB+ with Node.js runtime
+- ✅ **Fast startup**: Instant startup time
 
 ## Metrics
 
@@ -342,19 +363,19 @@ Apache License 2.0 - see LICENSE file for details.
 
 ## Changelog
 
-### v0.2.0 (Go Version)
-- ✅ Complete rewrite in Go
+### v2.0.0+ (Go Fork)
+- ✅ Fork du [projet original](https://github.com/percona/pbm-exporter) et réécriture complète en Go
 - ✅ Single binary with no dependencies
-- ✅ Cross-platform support
+- ✅ Cross-platform support (Linux, macOS, Windows, ARM64)
 - ✅ Improved performance and memory usage
 - ✅ Better error handling and logging
 - ✅ Systemd integration
 - ✅ Enhanced Docker image with security hardening
+- ✅ GitHub Actions CI/CD with automated releases
 
-### v0.1.2 (Node.js Version)
-- Initial Node.js implementation
-- Basic Prometheus metrics
-- Docker support
+### Historique du projet original (Node.js)
+- **v0.1.x** : Implémentation initiale en Node.js par Percona
+- **Repository original** : [percona/pbm-exporter](https://github.com/percona/pbm-exporter)
 
 Configure PBM and prepare first backup:
 
