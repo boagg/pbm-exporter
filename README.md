@@ -11,9 +11,8 @@ Ce projet est un **fork migré vers Go** du [pbm-exporter original en Node.js](h
 La migration vers Go suit les **standards de l'écosystème Prometheus** :
 
 - **📈 Cohérence** : Prometheus et la quasi-totalité des exporteurs officiels sont écrits en Go
-- **🚀 Performance** : Binaire statique léger (~15MB) vs runtime Node.js (~100MB+)
+- **🚀 Performance** : Binaire statique léger et démarrage instantané
 - **📦 Distribution simplifiée** : Un seul fichier exécutable, sans dépendances
-- **⚡ Démarrage instantané** : Plus de temps d'initialisation du runtime JavaScript
 - **🏗️ Build natif** : Cross-compilation native pour toutes les plateformes
 
 Cette approche garantit une **meilleure intégration** dans l'écosystème de monitoring moderne et suit les recommandations de l'équipe Prometheus.
@@ -63,7 +62,7 @@ docker run -p 9216:9216 ghcr.io/boagg/pbm-exporter:latest
 - ✅ **Prometheus metrics**: Full compatibility with Prometheus monitoring
 - ✅ **Health checks**: Built-in health check endpoint
 - ✅ **Graceful shutdown**: Proper signal handling
-- ✅ **Lightweight**: ~15MB binary vs ~100MB+ with Node.js runtime
+- ✅ **Lightweight**: ~15MB binary, déploiement simple
 - ✅ **Fast startup**: Instant startup time
 
 ## Metrics
@@ -305,7 +304,7 @@ scrape_configs:
 
 ### Grafana Dashboard
 
-Import the provided Grafana dashboard (dashboard.json) or create custom panels using the available metrics.
+Import the provided Grafana dashboard or create custom panels using the available metrics.
 
 ## Troubleshooting
 
@@ -363,8 +362,8 @@ Apache License 2.0 - see LICENSE file for details.
 
 ## Changelog
 
-### v2.0.0+ (Go Fork)
-- ✅ Fork du [projet original](https://github.com/percona/pbm-exporter) et réécriture complète en Go
+### v2.0.0+ (Go Implementation)
+- ✅ Fork du [projet original](https://github.com/koumoul-dev/pbm-exporter) et réécriture complète en Go
 - ✅ Single binary with no dependencies
 - ✅ Cross-platform support (Linux, macOS, Windows, ARM64)
 - ✅ Improved performance and memory usage
@@ -373,9 +372,7 @@ Apache License 2.0 - see LICENSE file for details.
 - ✅ Enhanced Docker image with security hardening
 - ✅ GitHub Actions CI/CD with automated releases
 
-### Historique du projet original (Node.js)
-- **v0.1.x** : Implémentation initiale en Node.js par Percona
-- **Repository original** : [percona/pbm-exporter](https://github.com/percona/pbm-exporter)
+> **Note** : Ce fork suit les standards de l'écosystème Prometheus en utilisant Go comme langage de référence.
 
 Configure PBM and prepare first backup:
 
