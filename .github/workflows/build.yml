@@ -87,18 +87,52 @@ jobs:
         GOARCH: ${{ matrix.goarch }}
         CGO_ENABLED: 0
       run: |
-        mkdir -p build
-        output_name="pbm-exporter-${{ matrix.goos }}-${{ matrix.goarch }}"
+        mkdir -p build dist
+        
+        # Build binary
+        binary_name="pbm-exporter"
         if [ "${{ matrix.goos }}" = "windows" ]; then
-          output_name="${output_name}.exe"
+          binary_name="${binary_name}.exe"
         fi
-        go build -ldflags "-s -w -X main.version=${GITHUB_REF_NAME:-dev}" -o "build/${output_name}" .
+        
+        go build -ldflags "-s -w -X main.version=${GITHUB_REF_NAME:-dev}" -o "build/${binary_name}" .
+        
+        # Create distribution package
+        package_name="pbm-exporter-${{ matrix.goos }}-${{ matrix.goarch }}"
+        
+        # Copy files to package directory
+        mkdir -p "dist/${package_name}"
+        cp "build/${binary_name}" "dist/${package_name}/"
+        cp README.md "dist/${package_name}/" 2>/dev/null || echo "README.md not found, skipping"
+        cp LICENSE "dist/${package_name}/" 2>/dev/null || echo "LICENSE not found, skipping"
+        
+        # Create archive based on OS
+        cd dist
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          zip -r "${package_name}.zip" "${package_name}/"
+          echo "Created ${package_name}.zip"
+        else
+          tar -czf "${package_name}.tar.gz" "${package_name}/"
+          echo "Created ${package_name}.tar.gz"
+        fi
+        
+        # Generate checksum
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          sha256sum "${package_name}.zip" > "${package_name}.zip.sha256"
+        else
+          sha256sum "${package_name}.tar.gz" > "${package_name}.tar.gz.sha256"
+        fi
+        
+        ls -la
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: pbm-exporter-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: build/pbm-exporter-*
+        path: |
+          dist/*.tar.gz
+          dist/*.zip
+          dist/*.sha256
         retention-days: 30
 
   docker:
@@ -155,7 +189,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build, docker]
+    needs: [build, docker, install-script]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
     - name: Checkout code
@@ -169,15 +203,174 @@ jobs:
     - name: Prepare release assets
       run: |
         mkdir -p release-assets
-        find artifacts -name "pbm-exporter-*" -type f -exec cp {} release-assets/ \;
-        ls -la release-assets/
+        
+        # Copy all distribution files
+        find artifacts -name "*.tar.gz" -exec cp {} release-assets/ \;
+        find artifacts -name "*.zip" -exec cp {} release-assets/ \;
+        find artifacts -name "*.sha256" -exec cp {} release-assets/ \;
+        
+        # Copy install script
+        find artifacts -name "install.sh" -exec cp {} release-assets/ \;
+        
+        # Create a consolidated checksum file
+        echo "# SHA256 Checksums for pbm-exporter ${GITHUB_REF_NAME}" > release-assets/SHA256SUMS
+        echo "# Generated on $(date -u)" >> release-assets/SHA256SUMS
+        echo "" >> release-assets/SHA256SUMS
+        
+        cd release-assets
+        for file in *.tar.gz *.zip; do
+          if [ -f "$file" ]; then
+            sha256sum "$file" >> SHA256SUMS
+          fi
+        done
+        
+        echo "Release assets prepared:"
+        ls -la
+        echo ""
+        echo "Checksums:"
+        cat SHA256SUMS
+
+    - name: Extract version info
+      id: version_info
+      run: |
+        VERSION=${GITHUB_REF_NAME#v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "is_prerelease=${{ contains(github.ref, '-') }}" >> $GITHUB_OUTPUT
 
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: release-assets/*
+        name: "pbm-exporter v${{ steps.version_info.outputs.version }}"
+        body: |
+          ## pbm-exporter v${{ steps.version_info.outputs.version }}
+          
+          ### � Installation rapide
+          
+          **Installation automatique (Linux/macOS):**
+          ```bash
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/install.sh | bash
+          ```
+          
+          **Installation manuelle Linux/macOS:**
+          ```bash
+          # Télécharger et installer
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pbm-exporter-linux-amd64.tar.gz | tar -xz
+          sudo mv pbm-exporter-linux-amd64/pbm-exporter /usr/local/bin/
+          ```
+          
+          **Windows (PowerShell):**
+          ```powershell
+          # Télécharger le binaire Windows
+          Invoke-WebRequest -Uri "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pbm-exporter-windows-amd64.zip" -OutFile "pbm-exporter.zip"
+          Expand-Archive -Path "pbm-exporter.zip" -DestinationPath "."
+          ```
+          
+          ### 📦 Binaires disponibles
+          
+          | Platform | Architecture | Download |
+          |----------|-------------|----------|
+          | Linux | amd64 | [tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pbm-exporter-linux-amd64.tar.gz) |
+          | Linux | arm64 | [tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pbm-exporter-linux-arm64.tar.gz) |
+          | macOS | amd64 | [tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pbm-exporter-darwin-amd64.tar.gz) |
+          | macOS | arm64 | [tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pbm-exporter-darwin-arm64.tar.gz) |
+          | Windows | amd64 | [zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/pbm-exporter-windows-amd64.zip) |
+          
+          ### 🐳 Image Docker
+          ```bash
+          docker pull ghcr.io/${{ github.repository }}:${{ steps.version_info.outputs.version }}
+          ```
+          
+          ### 🔒 Vérification des checksums
+          Téléchargez le fichier `SHA256SUMS` pour vérifier l'intégrité des binaires.
+          
+          ### 📋 Notes de version
+          
         generate_release_notes: true
+        append_body: true
         draft: false
-        prerelease: ${{ contains(github.ref, '-') }}
+        prerelease: ${{ steps.version_info.outputs.is_prerelease }}
+        make_latest: ${{ !contains(github.ref, '-') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  install-script:
+    name: Create Install Script
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create installation script
+      run: |
+        mkdir -p scripts
+        cat > scripts/install.sh << 'EOF'
+        #!/bin/bash
+        set -e
+
+        # pbm-exporter installation script
+        # Usage: curl -fsSL https://github.com/boagg/pbm-exporter/releases/latest/download/install.sh | bash
+
+        REPO="boagg/pbm-exporter"
+        BINARY_NAME="pbm-exporter"
+        INSTALL_DIR="/usr/local/bin"
+
+        # Detect OS and architecture
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+
+        case $ARCH in
+          x86_64) ARCH="amd64" ;;
+          aarch64|arm64) ARCH="arm64" ;;
+          *) echo "Architecture $ARCH not supported"; exit 1 ;;
+        esac
+
+        case $OS in
+          linux|darwin) ;;
+          *) echo "OS $OS not supported"; exit 1 ;;
+        esac
+
+        # Get latest release version
+        if [ -z "$VERSION" ]; then
+          VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
+        fi
+
+        if [ -z "$VERSION" ]; then
+          echo "Failed to get latest version"
+          exit 1
+        fi
+
+        echo "Installing $BINARY_NAME $VERSION for $OS-$ARCH..."
+
+        # Download and extract
+        DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
+        TMP_DIR=$(mktemp -d)
+
+        echo "Downloading from $DOWNLOAD_URL..."
+        curl -fsSL "$DOWNLOAD_URL" | tar -xz -C "$TMP_DIR"
+
+        # Install binary
+        if [ -w "$INSTALL_DIR" ]; then
+          cp "$TMP_DIR/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" "$INSTALL_DIR/"
+        else
+          echo "Installing to $INSTALL_DIR (requires sudo)..."
+          sudo cp "$TMP_DIR/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" "$INSTALL_DIR/"
+        fi
+
+        # Cleanup
+        rm -rf "$TMP_DIR"
+
+        echo "✅ $BINARY_NAME installed successfully to $INSTALL_DIR/$BINARY_NAME"
+        echo "Run '$BINARY_NAME --version' to verify installation"
+        EOF
+
+        chmod +x scripts/install.sh
+
+    - name: Upload install script
+      uses: actions/upload-artifact@v4
+      with:
+        name: install-script
+        path: scripts/install.sh
+        retention-days: 30
