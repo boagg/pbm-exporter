@@ -2,6 +2,39 @@
 
 Prometheus exporter for PBM (Percona Backup MongoDB) written in Go.
 
+## 🚀 Installation rapide
+
+### Via GitHub Releases (Recommandé)
+
+**Installation automatique (Linux/macOS):**
+```bash
+curl -fsSL https://github.com/boagg/pbm-exporter/releases/latest/download/install.sh | bash
+```
+
+**Installation manuelle:**
+
+1. **Téléchargez le binaire** depuis [GitHub Releases](https://github.com/boagg/pbm-exporter/releases)
+2. **Linux/macOS:**
+   ```bash
+   # Remplacez par votre plateforme (linux-amd64, linux-arm64, darwin-amd64, darwin-arm64)
+   curl -fsSL https://github.com/boagg/pbm-exporter/releases/latest/download/pbm-exporter-linux-amd64.tar.gz | tar -xz
+   sudo mv pbm-exporter-linux-amd64/pbm-exporter /usr/local/bin/
+   pbm-exporter --version
+   ```
+
+3. **Windows:**
+   ```powershell
+   # Téléchargez et extrayez pbm-exporter-windows-amd64.zip
+   Invoke-WebRequest -Uri "https://github.com/boagg/pbm-exporter/releases/latest/download/pbm-exporter-windows-amd64.zip" -OutFile "pbm-exporter.zip"
+   Expand-Archive -Path "pbm-exporter.zip" -DestinationPath "."
+   ```
+
+### Via Docker
+
+```bash
+docker run -p 9216:9216 ghcr.io/boagg/pbm-exporter:latest
+```
+
 ## Features
 
 - ✅ **Zero dependencies**: Single binary with no external dependencies
@@ -29,11 +62,47 @@ The exporter provides the following Prometheus metrics:
 
 ## Quick Start
 
-### Download and Install
+### 1. Installation
+
+Choisissez votre méthode d'installation préférée :
+
+- **GitHub Releases** (voir section ci-dessus) - Recommandé
+- **Docker** : `docker run -p 9216:9216 ghcr.io/boagg/pbm-exporter:latest`
+- **Build from source** : voir section "Development" ci-dessous
+
+### 2. Configuration
+
+**Option A: Variables d'environnement**
+```bash
+export PBM_MONGODB_URI="mongodb://localhost:27017"
+export PBM_LISTEN_PORT="9216"
+pbm-exporter
+```
+
+**Option B: Fichier de configuration**
+```bash
+# Créer /etc/default/pbm-exporter ou ./config.env
+echo 'PBM_MONGODB_URI=mongodb://localhost:27017' > config.env
+pbm-exporter
+```
+
+### 3. Vérification
+
+```bash
+# Test du endpoint de métriques
+curl http://localhost:9216/metrics
+
+# Test du health check
+curl http://localhost:9216/health
+```
+
+## Installation avancée
+
+### Download and Install from Source
 
 1. **Build from source:**
 ```bash
-git clone https://github.com/your-org/pbm-exporter.git
+git clone https://github.com/boagg/pbm-exporter.git
 cd pbm-exporter
 make build
 ```
