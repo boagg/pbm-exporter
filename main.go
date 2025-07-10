@@ -34,9 +34,9 @@ var (
 	pbmSnapshotsGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "pbm_snapshots",
-			Help: "Detail of snapshots with statuses",
+			Help: "Detail of snapshots with statuses and duration",
 		},
-		[]string{"name", "status"},
+		[]string{"name", "status", "duration"},
 	)
 
 	pbmLastSnapshotGauge = prometheus.NewGaugeVec(
@@ -145,6 +145,25 @@ type PBMPITRChunk struct {
 	} `bson:"end_ts"`
 }
 
+// getDurationCategory returns a human-readable duration category
+func getDurationCategory(duration time.Duration) string {
+	hours := duration.Hours()
+	if hours < 1 {
+		return "< 1h"
+	} else if hours < 24 {
+		return fmt.Sprintf("%.0fh", hours)
+	} else if hours < 168 { // 7 days
+		days := int(hours / 24)
+		return fmt.Sprintf("%dd", days)
+	} else if hours < 720 { // 30 days
+		weeks := int(hours / 168)
+		return fmt.Sprintf("%dw", weeks)
+	} else {
+		months := int(hours / 720)
+		return fmt.Sprintf("%dm", months)
+	}
+}
+
 // PBMExporter holds the MongoDB client and other state
 type PBMExporter struct {
 	mongoURI         string
@@ -219,16 +238,29 @@ func (e *PBMExporter) updateMetrics(ctx context.Context) error {
 		pbmSnapshotsTotalGauge.WithLabelValues(status).Set(0)
 		pbmLastSnapshotGauge.WithLabelValues(status).Set(0)
 		for _, backup := range backups {
-			pbmSnapshotsGauge.WithLabelValues(backup.Name, status).Set(0)
+			// For reset, we need to reset all possible duration categories
+			// This is a simplified approach - in practice you might want to track these
+			for _, durationCat := range []string{"< 1h", "1h", "2h", "3h", "6h", "12h", "1d", "2d", "3d", "7d", "1w", "2w", "1m", "2m", "3m"} {
+				pbmSnapshotsGauge.WithLabelValues(backup.Name, status, durationCat).Set(0)
+			}
 		}
 	}
 
 	// Update backup metrics
 	statusCounts := make(map[string]int)
+	now := time.Now()
 	for _, backup := range backups {
 		e.snapshotStatuses[backup.Status] = true
 		statusCounts[backup.Status]++
-		pbmSnapshotsGauge.WithLabelValues(backup.Name, backup.Status).Set(1)
+
+		// Calculate duration and categorize it
+		durationCategory := "unknown"
+		if backupTime, err := time.Parse(time.RFC3339, backup.Name); err == nil {
+			duration := now.Sub(backupTime)
+			durationCategory = getDurationCategory(duration)
+		}
+
+		pbmSnapshotsGauge.WithLabelValues(backup.Name, backup.Status, durationCategory).Set(1)
 	}
 
 	for status, count := range statusCounts {
