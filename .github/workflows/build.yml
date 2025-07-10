@@ -189,28 +189,90 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build, docker, install-script]
+    needs: [build, docker]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Download all artifacts
+    - name: Download build artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts
+        pattern: pbm-exporter-*
+      continue-on-error: false
 
-    - name: Prepare release assets
+    - name: Create installation script
       run: |
         mkdir -p release-assets
+        cat > release-assets/install.sh << 'EOF'
+        #!/bin/bash
+        set -e
+
+        # pbm-exporter installation script
+        # Usage: curl -fsSL https://github.com/boagg/pbm-exporter/releases/latest/download/install.sh | bash
+
+        REPO="boagg/pbm-exporter"
+        BINARY_NAME="pbm-exporter"
+        INSTALL_DIR="/usr/local/bin"
+
+        # Detect OS and architecture
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+
+        case $ARCH in
+          x86_64) ARCH="amd64" ;;
+          aarch64|arm64) ARCH="arm64" ;;
+          *) echo "Architecture $ARCH not supported"; exit 1 ;;
+        esac
+
+        case $OS in
+          linux|darwin) ;;
+          *) echo "OS $OS not supported"; exit 1 ;;
+        esac
+
+        # Get latest release version
+        if [ -z "$VERSION" ]; then
+          VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
+        fi
+
+        if [ -z "$VERSION" ]; then
+          echo "Failed to get latest version"
+          exit 1
+        fi
+
+        echo "Installing $BINARY_NAME $VERSION for $OS-$ARCH..."
+
+        # Download and extract
+        DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
+        TMP_DIR=$(mktemp -d)
+
+        echo "Downloading from $DOWNLOAD_URL..."
+        curl -fsSL "$DOWNLOAD_URL" | tar -xz -C "$TMP_DIR"
+
+        # Install binary
+        if [ -w "$INSTALL_DIR" ]; then
+          cp "$TMP_DIR/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" "$INSTALL_DIR/"
+        else
+          echo "Installing to $INSTALL_DIR (requires sudo)..."
+          sudo cp "$TMP_DIR/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" "$INSTALL_DIR/"
+        fi
+
+        # Cleanup
+        rm -rf "$TMP_DIR"
+
+        echo "✅ $BINARY_NAME installed successfully to $INSTALL_DIR/$BINARY_NAME"
+        echo "Run '$BINARY_NAME --version' to verify installation"
+        EOF
         
+        chmod +x release-assets/install.sh
+
+    - name: Prepare release assets
+      run: |        
         # Copy all distribution files
         find artifacts -name "*.tar.gz" -exec cp {} release-assets/ \;
         find artifacts -name "*.zip" -exec cp {} release-assets/ \;
         find artifacts -name "*.sha256" -exec cp {} release-assets/ \;
-        
-        # Copy install script
-        find artifacts -name "install.sh" -exec cp {} release-assets/ \;
         
         # Create a consolidated checksum file
         echo "# SHA256 Checksums for pbm-exporter ${GITHUB_REF_NAME}" > release-assets/SHA256SUMS
@@ -293,84 +355,3 @@ jobs:
         make_latest: ${{ !contains(github.ref, '-') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  install-script:
-    name: Create Install Script
-    runs-on: ubuntu-latest
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Create installation script
-      run: |
-        mkdir -p scripts
-        cat > scripts/install.sh << 'EOF'
-        #!/bin/bash
-        set -e
-
-        # pbm-exporter installation script
-        # Usage: curl -fsSL https://github.com/boagg/pbm-exporter/releases/latest/download/install.sh | bash
-
-        REPO="boagg/pbm-exporter"
-        BINARY_NAME="pbm-exporter"
-        INSTALL_DIR="/usr/local/bin"
-
-        # Detect OS and architecture
-        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-        ARCH=$(uname -m)
-
-        case $ARCH in
-          x86_64) ARCH="amd64" ;;
-          aarch64|arm64) ARCH="arm64" ;;
-          *) echo "Architecture $ARCH not supported"; exit 1 ;;
-        esac
-
-        case $OS in
-          linux|darwin) ;;
-          *) echo "OS $OS not supported"; exit 1 ;;
-        esac
-
-        # Get latest release version
-        if [ -z "$VERSION" ]; then
-          VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | cut -d'"' -f4)
-        fi
-
-        if [ -z "$VERSION" ]; then
-          echo "Failed to get latest version"
-          exit 1
-        fi
-
-        echo "Installing $BINARY_NAME $VERSION for $OS-$ARCH..."
-
-        # Download and extract
-        DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
-        TMP_DIR=$(mktemp -d)
-
-        echo "Downloading from $DOWNLOAD_URL..."
-        curl -fsSL "$DOWNLOAD_URL" | tar -xz -C "$TMP_DIR"
-
-        # Install binary
-        if [ -w "$INSTALL_DIR" ]; then
-          cp "$TMP_DIR/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" "$INSTALL_DIR/"
-        else
-          echo "Installing to $INSTALL_DIR (requires sudo)..."
-          sudo cp "$TMP_DIR/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" "$INSTALL_DIR/"
-        fi
-
-        # Cleanup
-        rm -rf "$TMP_DIR"
-
-        echo "✅ $BINARY_NAME installed successfully to $INSTALL_DIR/$BINARY_NAME"
-        echo "Run '$BINARY_NAME --version' to verify installation"
-        EOF
-
-        chmod +x scripts/install.sh
-
-    - name: Upload install script
-      uses: actions/upload-artifact@v4
-      with:
-        name: install-script
-        path: scripts/install.sh
-        retention-days: 30
